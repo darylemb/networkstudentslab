@@ -1,0 +1,4 @@
+.env
+*_data/
+*.pcap
+__pycache__/

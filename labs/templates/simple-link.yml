@@ -1,0 +1,18 @@
+name: simple-link
+
+mgmt:
+  network: lab-net
+  ipv4-subnet: 172.19.0.0/16
+
+topology:
+  nodes:
+    client:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+    
+    server:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+
+  links:
+    - endpoints: ["client:eth1", "server:eth1"]

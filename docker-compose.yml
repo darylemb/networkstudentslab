@@ -1,0 +1,45 @@
+services:
+  authelia:
+    image: authelia/authelia
+    user: '1000:1000'
+    volumes:
+      - ./authelia:/config
+    networks:
+      - lab-net
+
+  portal:
+    build: ./provisioning-portal
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./authelia:/authelia-config
+      - ./labs:/labs
+      - /proc:/host/proc:ro
+    networks:
+      - lab-net
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    pid: host
+    command: gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker --workers 1 --bind 0.0.0.0:5000 --timeout 3600 app:app
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/include:/etc/nginx/include:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - authelia
+      - portal
+    networks:
+      - lab-net
+
+networks:
+  lab-net:
+    name: lab-net

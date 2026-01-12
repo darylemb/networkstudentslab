@@ -1,0 +1,22 @@
+users:
+  authelia:
+    disabled: false
+    displayname: Authelia User
+    email: authelia@example.com
+    groups:
+    - admins
+    password: $argon2id$v=19$m=32768,t=1,p=8$eUhVT1dQa082YVk2VUhDMQ$E8QI4jHbUBt3EdsU1NFDu4Bq5jObKNx7nBKSn1EYQxk
+  daryl:
+    disabled: false
+    displayname: Daryl
+    email: daryl@localhost
+    groups:
+    - students
+    password: $argon2id$v=19$m=65536,t=3,p=4$Ktapw1A3aulfJvqzn43n3A$gb4wA4cePP5IJUgSpZ9TlNse0zngJQkvj0aoJG9wtAU
+  student:
+    disabled: false
+    displayname: Student User
+    email: student@example.com
+    groups:
+    - students
+    password: $argon2id$v=19$m=32768,t=1,p=8$eUhVT1dQa082YVk2VUhDMQ$E8QI4jHbUBt3EdsU1NFDu4Bq5jObKNx7nBKSn1EYQxk

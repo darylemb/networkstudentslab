@@ -1,0 +1,8 @@
+flask
+docker
+argon2-cffi
+pyyaml
+gunicorn
+gevent
+gevent-websocket
+flask-socketio

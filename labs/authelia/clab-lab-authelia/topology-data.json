@@ -1,0 +1,195 @@
+{
+  "name": "lab-authelia",
+  "type": "clab",
+  "clab": {
+    "config": {
+      "prefix": "clab",
+      "mgmt": {
+        "network": "lab-net",
+        "bridge": "br-ce8d22a59ad8",
+        "ipv4-subnet": "172.19.0.0/16",
+        "ipv4-gw": "172.19.0.1",
+        "external-access": true
+      }
+    }
+  },
+  "ssh-pub-keys": [],
+  "nodes": {
+    "client": {
+      "index": "0",
+      "shortname": "client",
+      "longname": "clab-lab-authelia-client",
+      "fqdn": "client.lab-authelia.io",
+      "group": "",
+      "labdir": "/labs/authelia/clab-lab-authelia/client",
+      "kind": "linux",
+      "image": "ghcr.io/srl-labs/network-multitool:latest",
+      "mgmt-net": "",
+      "mgmt-intf": "",
+      "mgmt-ipv4-address": "172.19.0.5",
+      "mgmt-ipv4-prefix-length": 16,
+      "mgmt-ipv6-address": "",
+      "mgmt-ipv6-prefix-length": 0,
+      "mac-address": "",
+      "labels": {
+        "clab-mgmt-net-bridge": "br-ce8d22a59ad8",
+        "clab-node-group": "",
+        "clab-node-kind": "linux",
+        "clab-node-lab-dir": "/labs/authelia/clab-lab-authelia/client",
+        "clab-node-longname": "clab-lab-authelia-client",
+        "clab-node-name": "client",
+        "clab-node-type": "",
+        "clab-owner": "",
+        "clab-topo-file": "/labs/authelia/topology.yml",
+        "containerlab": "lab-authelia"
+      },
+      "port-bindings": [
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 1180,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 22,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 443,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "0.0.0.0",
+          "host-port": 44001,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "::",
+          "host-port": 44001,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 80,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 8080,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 11443,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "server": {
+      "index": "1",
+      "shortname": "server",
+      "longname": "clab-lab-authelia-server",
+      "fqdn": "server.lab-authelia.io",
+      "group": "",
+      "labdir": "/labs/authelia/clab-lab-authelia/server",
+      "kind": "linux",
+      "image": "ghcr.io/srl-labs/network-multitool:latest",
+      "mgmt-net": "",
+      "mgmt-intf": "",
+      "mgmt-ipv4-address": "172.19.0.6",
+      "mgmt-ipv4-prefix-length": 16,
+      "mgmt-ipv6-address": "",
+      "mgmt-ipv6-prefix-length": 0,
+      "mac-address": "",
+      "labels": {
+        "clab-mgmt-net-bridge": "br-ce8d22a59ad8",
+        "clab-node-group": "",
+        "clab-node-kind": "linux",
+        "clab-node-lab-dir": "/labs/authelia/clab-lab-authelia/server",
+        "clab-node-longname": "clab-lab-authelia-server",
+        "clab-node-name": "server",
+        "clab-node-type": "",
+        "clab-owner": "",
+        "clab-topo-file": "/labs/authelia/topology.yml",
+        "containerlab": "lab-authelia"
+      },
+      "port-bindings": [
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 11443,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 1180,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 22,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 443,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "0.0.0.0",
+          "host-port": 40041,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "::",
+          "host-port": 40041,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 80,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 8080,
+          "protocol": "tcp"
+        }
+      ]
+    }
+  },
+  "links": [
+    {
+      "endpoints": {
+        "a": {
+          "node": "client",
+          "interface": "eth1",
+          "mac": "aa:c1:ab:23:bf:d8",
+          "peer": "z"
+        },
+        "z": {
+          "node": "server",
+          "interface": "eth1",
+          "mac": "aa:c1:ab:0b:37:94",
+          "peer": "a"
+        }
+      }
+    }
+  ]
+}

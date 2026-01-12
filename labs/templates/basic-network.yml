@@ -1,0 +1,33 @@
+name: basic-network
+
+mgmt:
+  network: lab-net
+  ipv4-subnet: 172.19.0.0/16
+
+topology:
+  nodes:
+    router:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      exec:
+        - sysctl -w net.ipv4.ip_forward=1
+        - apk add --no-cache ttyd bash
+        - sh -c "ttyd -p 7681 bash &"
+    
+    client1:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      exec:
+        - apk add --no-cache ttyd bash
+        - sh -c "ttyd -p 7681 bash &"
+    
+    server:
+      kind: linux
+      image: ghcr.io/srl-labs/network-multitool:latest
+      exec:
+        - apk add --no-cache ttyd bash
+        - sh -c "ttyd -p 7681 bash &"
+
+  links:
+    - endpoints: ["router:eth1", "client1:eth1"]
+    - endpoints: ["router:eth2", "server:eth1"]
