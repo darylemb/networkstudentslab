@@ -1,0 +1,20 @@
+mgmt:
+  ipv4-subnet: 172.19.0.0/16
+  network: lab-net
+name: lab-test
+topology:
+  links:
+  - endpoints:
+    - client:eth1
+    - server:eth1
+  nodes:
+    client:
+      image: ghcr.io/srl-labs/network-multitool:latest
+      kind: linux
+      ports:
+      - 60361:7681
+    server:
+      image: ghcr.io/srl-labs/network-multitool:latest
+      kind: linux
+      ports:
+      - 43763:7681

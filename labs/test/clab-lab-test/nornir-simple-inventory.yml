@@ -1,0 +1,11 @@
+---
+client:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.19.0.5
+server:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.19.0.6

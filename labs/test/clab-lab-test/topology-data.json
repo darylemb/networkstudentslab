@@ -1,0 +1,195 @@
+{
+  "name": "lab-test",
+  "type": "clab",
+  "clab": {
+    "config": {
+      "prefix": "clab",
+      "mgmt": {
+        "network": "lab-net",
+        "bridge": "br-285fe75e4cce",
+        "ipv4-subnet": "172.19.0.0/16",
+        "ipv4-gw": "172.19.0.1",
+        "external-access": true
+      }
+    }
+  },
+  "ssh-pub-keys": [],
+  "nodes": {
+    "client": {
+      "index": "0",
+      "shortname": "client",
+      "longname": "clab-lab-test-client",
+      "fqdn": "client.lab-test.io",
+      "group": "",
+      "labdir": "/labs/test/clab-lab-test/client",
+      "kind": "linux",
+      "image": "ghcr.io/srl-labs/network-multitool:latest",
+      "mgmt-net": "",
+      "mgmt-intf": "",
+      "mgmt-ipv4-address": "172.19.0.5",
+      "mgmt-ipv4-prefix-length": 16,
+      "mgmt-ipv6-address": "",
+      "mgmt-ipv6-prefix-length": 0,
+      "mac-address": "",
+      "labels": {
+        "clab-mgmt-net-bridge": "br-285fe75e4cce",
+        "clab-node-group": "",
+        "clab-node-kind": "linux",
+        "clab-node-lab-dir": "/labs/test/clab-lab-test/client",
+        "clab-node-longname": "clab-lab-test-client",
+        "clab-node-name": "client",
+        "clab-node-type": "",
+        "clab-owner": "",
+        "clab-topo-file": "/labs/test/topology.yml",
+        "containerlab": "lab-test"
+      },
+      "port-bindings": [
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 11443,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 1180,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 22,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 443,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "0.0.0.0",
+          "host-port": 60361,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "::",
+          "host-port": 60361,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 80,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 8080,
+          "protocol": "tcp"
+        }
+      ]
+    },
+    "server": {
+      "index": "1",
+      "shortname": "server",
+      "longname": "clab-lab-test-server",
+      "fqdn": "server.lab-test.io",
+      "group": "",
+      "labdir": "/labs/test/clab-lab-test/server",
+      "kind": "linux",
+      "image": "ghcr.io/srl-labs/network-multitool:latest",
+      "mgmt-net": "",
+      "mgmt-intf": "",
+      "mgmt-ipv4-address": "172.19.0.6",
+      "mgmt-ipv4-prefix-length": 16,
+      "mgmt-ipv6-address": "",
+      "mgmt-ipv6-prefix-length": 0,
+      "mac-address": "",
+      "labels": {
+        "clab-mgmt-net-bridge": "br-285fe75e4cce",
+        "clab-node-group": "",
+        "clab-node-kind": "linux",
+        "clab-node-lab-dir": "/labs/test/clab-lab-test/server",
+        "clab-node-longname": "clab-lab-test-server",
+        "clab-node-name": "server",
+        "clab-node-type": "",
+        "clab-owner": "",
+        "clab-topo-file": "/labs/test/topology.yml",
+        "containerlab": "lab-test"
+      },
+      "port-bindings": [
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 443,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "0.0.0.0",
+          "host-port": 43763,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "::",
+          "host-port": 43763,
+          "port": 7681,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 80,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 8080,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 11443,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 1180,
+          "protocol": "tcp"
+        },
+        {
+          "host-ip": "",
+          "host-port": 0,
+          "port": 22,
+          "protocol": "tcp"
+        }
+      ]
+    }
+  },
+  "links": [
+    {
+      "endpoints": {
+        "a": {
+          "node": "client",
+          "interface": "eth1",
+          "mac": "aa:c1:ab:b7:16:cb",
+          "peer": "z"
+        },
+        "z": {
+          "node": "server",
+          "interface": "eth1",
+          "mac": "aa:c1:ab:61:01:ab",
+          "peer": "a"
+        }
+      }
+    }
+  ]
+}

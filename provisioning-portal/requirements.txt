@@ -1,8 +1,14 @@
 flask
 docker
-argon2-cffi
 pyyaml
-gunicorn
+argon2-cffi
+flask-socketio
 gevent
 gevent-websocket
-flask-socketio
+flask-login
+flask-sqlalchemy
+psycopg2-binary
+python-dotenv
+flake8
+bandit
+gunicorn

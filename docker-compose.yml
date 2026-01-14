@@ -1,19 +1,28 @@
 services:
-  authelia:
-    image: authelia/authelia
-    user: '1000:1000'
+  db:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=studentlabs
     volumes:
-      - ./authelia:/config
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - lab-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d studentlabs"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   portal:
     build: ./provisioning-portal
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
+      - DATABASE_URL=postgresql://user:password@db:5432/studentlabs
+      - SECRET_KEY=student-labs-secure-secret-2026
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./authelia:/authelia-config
       - ./labs:/labs
       - /proc:/host/proc:ro
     networks:
@@ -23,6 +32,9 @@ services:
       - NET_ADMIN
       - SYS_ADMIN
     pid: host
+    depends_on:
+      db:
+        condition: service_healthy
     command: gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker --workers 1 --bind 0.0.0.0:5000 --timeout 3600 app:app
 
   nginx:
@@ -35,10 +47,12 @@ services:
       - ./nginx/include:/etc/nginx/include:ro
       - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
-      - authelia
       - portal
     networks:
       - lab-net
+
+volumes:
+  postgres_data:
 
 networks:
   lab-net:
