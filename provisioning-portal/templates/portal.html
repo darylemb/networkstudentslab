@@ -90,6 +90,20 @@
             height: calc(100% - 40px);
             border: none;
         }
+
+        #terminals-wrapper.grid-mode {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(45%, 1fr));
+            gap: 5px;
+            padding: 5px;
+            overflow-y: auto;
+        }
+
+        #terminals-wrapper.grid-mode iframe {
+            display: block !important;
+            height: 100% !important;
+            border: 1px solid #444 !important;
+        }
     </style>
 </head>
 
@@ -106,6 +120,26 @@
         <div class="section">
             <h3>✅ Lab Activo</h3>
             {{ nodes_html|safe }}
+
+            {% if ports %}
+            <div style="margin-top: 25px;">
+                <h4>🔌 Mapeo de Puertos (Host -> Nodo:7681)</h4>
+                <table
+                    style="width:100%; border-collapse: collapse; background: white; border-radius: 5px; overflow: hidden;">
+                    <tr style="background: #007bff; color: white; text-align: left;">
+                        <th style="padding: 10px;">Nodo</th>
+                        <th style="padding: 10px;">Puerto Externo</th>
+                    </tr>
+                    {% for node, port in ports.items() %}
+                    <tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: 10px;">{{ node }}</td>
+                        <td style="padding: 10px;"><code>{{ port }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+            {% endif %}
+
             <button class="danger" style="margin-top:20px" onclick="destroyLab()">Destruir Lab</button>
         </div>
         {% else %}
@@ -118,14 +152,58 @@
     </div>
 
     <div id="terminal-container" class="terminal-container">
+        <div id="resize-handle"
+            style="height: 6px; cursor: ns-resize; background: #444; width: 100%; border-top: 1px solid #666;"></div>
         <div class="terminal-header">
-            <span>Terminal: <strong id="node-label"></strong></span>
-            <button onclick="closeTerminal()">✕</button>
+            <div id="tabs-bar" style="display: flex; gap: 5px; align-items: center; overflow-x: auto; flex-grow: 1;">
+                <!-- Las pestañas se insertarán aquí -->
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; margin-right: 15px;">
+                <button onclick="setViewMode('tabs')" id="btn-tabs"
+                    style="padding: 5px 10px; border-radius: 4px; font-size: 12px; background: #007bff; border: 1px solid rgba(255,255,255,0.2);">🗂️
+                    Pestañas</button>
+                <button onclick="setViewMode('grid')" id="btn-grid"
+                    style="padding: 5px 10px; border-radius: 4px; font-size: 12px; background: #333; border: 1px solid rgba(255,255,255,0.2);">🔳
+                    Malla</button>
+            </div>
+            <button onclick="closeTerminalContainer()" title="Cerrar panel de terminales">✕</button>
         </div>
-        <iframe id="terminal-iframe"></iframe>
+        <div id="terminals-wrapper" class="tabs-mode" style="height: calc(100% - 46px); background: black;">
+            <!-- Los iframes de las terminales se insertarán aquí -->
+        </div>
     </div>
 
     <script>
+        const openTerminals = new Set();
+        let activeTerminalNode = null;
+        let viewMode = 'tabs'; // 'tabs' o 'grid'
+
+        // --- Lógica de redimensión ---
+        let isResizing = false;
+        const terminalContainer = document.getElementById('terminal-container');
+        const resizeHandle = document.getElementById('resize-handle');
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'ns-resize';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const newHeight = window.innerHeight - e.clientY;
+            if (newHeight > 150 && newHeight < window.innerHeight * 0.95) {
+                terminalContainer.style.height = `${newHeight}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = 'default';
+            }
+        });
+
         function createLab(t) {
             if (confirm('¿Crear lab?')) {
                 fetch('/api/labs/deploy', {
@@ -142,14 +220,104 @@
                     .then(r => r.json()).then(d => location.reload());
             }
         }
-        function openTerminal(node, url) {
-            document.getElementById('terminal-iframe').src = url;
-            document.getElementById('node-label').textContent = node;
-            document.getElementById('terminal-container').classList.add('active');
+
+        function setViewMode(mode) {
+            viewMode = mode;
+            const wrapper = document.getElementById('terminals-wrapper');
+            const tabsBar = document.getElementById('tabs-bar');
+
+            if (mode === 'grid') {
+                wrapper.classList.remove('tabs-mode');
+                wrapper.classList.add('grid-mode');
+                tabsBar.style.opacity = '0.5';
+                tabsBar.style.pointerEvents = 'none';
+                document.getElementById('btn-grid').style.background = '#007bff';
+                document.getElementById('btn-tabs').style.background = '#333';
+            } else {
+                wrapper.classList.remove('grid-mode');
+                wrapper.classList.add('tabs-mode');
+                tabsBar.style.opacity = '1';
+                tabsBar.style.pointerEvents = 'auto';
+                document.getElementById('btn-tabs').style.background = '#007bff';
+                document.getElementById('btn-grid').style.background = '#333';
+                if (activeTerminalNode) switchTerminal(activeTerminalNode);
+            }
         }
-        function closeTerminal() {
+
+        function openTerminal(node, url) {
+            const container = document.getElementById('terminal-container');
+            container.classList.add('active');
+
+            if (!openTerminals.has(node)) {
+                // Crear nueva pestaña
+                const tabsBar = document.getElementById('tabs-bar');
+                const tab = document.createElement('div');
+                tab.id = `tab-${node}`;
+                tab.className = 'tab';
+                tab.style.padding = '5px 15px';
+                tab.style.cursor = 'pointer';
+                tab.style.background = '#333';
+                tab.style.borderRadius = '5px 5px 0 0';
+                tab.style.display = 'flex';
+                tab.style.alignItems = 'center';
+                tab.style.gap = '8px';
+                tab.innerHTML = `
+                    <span onclick="switchTerminal('${node}')">🖥️ ${node}</span>
+                    <span style="font-weight:bold; cursor:pointer;" onclick="closeSpecificTerminal('${node}')">×</span>
+                `;
+                tabsBar.appendChild(tab);
+
+                // Crear nuevo iframe
+                const wrapper = document.getElementById('terminals-wrapper');
+                const iframe = document.createElement('iframe');
+                iframe.id = `iframe-${node}`;
+                iframe.src = url;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.display = 'none';
+                wrapper.appendChild(iframe);
+
+                openTerminals.add(node);
+            }
+
+            if (viewMode === 'tabs') switchTerminal(node);
+        }
+
+        function switchTerminal(node) {
+            activeTerminalNode = node;
+
+            if (viewMode === 'grid') return;
+
+            // Actualizar UI de pestañas
+            document.querySelectorAll('.tab').forEach(t => {
+                t.style.background = t.id === `tab-${node}` ? '#007bff' : '#333';
+            });
+
+            // Actualizar visibilidad de iframes
+            openTerminals.forEach(n => {
+                const el = document.getElementById(`iframe-${n}`);
+                if (el) el.style.display = n === node ? 'block' : 'none';
+            });
+        }
+
+        function closeSpecificTerminal(node) {
+            // Eliminar de los sets y DOM
+            openTerminals.delete(node);
+            const tab = document.getElementById(`tab-${node}`);
+            const iframe = document.getElementById(`iframe-${node}`);
+            if (tab) tab.remove();
+            if (iframe) iframe.remove();
+
+            if (activeTerminalNode === node) {
+                const next = Array.from(openTerminals)[0];
+                if (next) switchTerminal(next);
+                else closeTerminalContainer();
+            }
+        }
+
+        function closeTerminalContainer() {
             document.getElementById('terminal-container').classList.remove('active');
-            document.getElementById('terminal-iframe').src = '';
         }
     </script>
 </body>

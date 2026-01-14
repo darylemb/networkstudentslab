@@ -2,7 +2,6 @@ import os
 import threading
 from datetime import timedelta
 import docker
-import yaml
 from argon2 import PasswordHasher
 from flask import Flask, request, redirect, render_template, jsonify, url_for, session
 import containerlab_manager as clab
@@ -44,6 +43,18 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
+
+
+class Lab(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    template = db.Column(db.String(50), nullable=False)
+    topology_data = db.Column(db.JSON, nullable=False)
+    port_mapping = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    user = db.relationship('User', backref=db.backref('labs', lazy=True))
 
 
 @login_manager.user_loader
@@ -137,47 +148,85 @@ def logout():
 @app.route('/')
 @login_required
 def home():
-    user = current_user.username
+    username = current_user.username
 
-    lab_status = clab.list_labs(user)
-    lab_active = lab_status.get('success', False)
-
+    # Intenta obtener el lab desde la base de datos
+    lab_entry = Lab.query.filter_by(user_id=current_user.id).first()
+    lab_active = False
     nodes_html = ""
-    if lab_active:
-        lab_file = f"/labs/{user}/topology.yml"
-        if os.path.exists(lab_file):
-            with open(lab_file, 'r') as f:
-                topology = yaml.safe_load(f)
 
-            nodes_html = "<div class='nodes'>"
-            for node_name, node_config in topology.get('topology', {}).get('nodes', {}).items():
-                url = f"/terminal/{user}/{node_name}"
-                nodes_html += f"""
-                <div class='node-card'>
-                    <h3>🖥️ {node_name}</h3>
-                    <button class='info' onclick='openTerminal("{node_name}", "{url}")'>Abrir Terminal</button>
-                </div>
-                """
-            nodes_html += "</div>"
+    if lab_entry:
+        lab_active = True
+        nodes_html = "<div class='nodes'>"
+        # Usamos la data guardada en DB en lugar de leer el disco
+        topology = lab_entry.topology_data
+        for node_name in topology.get('topology', {}).get('nodes', {}).keys():
+            url = f"/terminal/{username}/{node_name}"
+            nodes_html += f"""
+            <div class='node-card'>
+                <h3>🖥️ {node_name}</h3>
+                <button class='info' onclick='openTerminal("{node_name}", "{url}")'>Abrir Terminal</button>
+            </div>
+            """
+        nodes_html += "</div>"
+    else:
+        # Fallback de seguridad: verificar si hay algo en containerlab pero no en DB (sincronización básica)
+        status = clab.list_labs(username)
+        if status.get('success'):
+            lab_active = True
+            nodes_html = "<div class='section'><p>⚠️ Sincronizando estado...</p></div>"
 
-    return render_template('portal.html', user=user, lab_active=lab_active, nodes_html=nodes_html)
+    return render_template('portal.html', user=username, lab_active=lab_active, nodes_html=nodes_html, ports=lab_entry.port_mapping if lab_entry else {})
 
 
 @app.route('/api/labs/deploy', methods=['POST'])
 @login_required
 def api_deploy_lab():
-    user = current_user.username
+    username = current_user.username
     data = request.get_json()
     template = data.get('template', 'simple-link')
-    result = clab.deploy_lab(user, template)
+
+    # 1. Ejecutar despliegue físico
+    result = clab.deploy_lab(username, template)
+
+    if result.get('success'):
+        try:
+            # 2. Guardar estado en BD
+            new_lab = Lab(
+                user_id=current_user.id,
+                name=result['lab_name'],
+                template=template,
+                topology_data=result['topology'],
+                port_mapping=result['ports']
+            )
+            db.session.add(new_lab)
+            db.session.commit()
+            return jsonify({'success': True})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'Error guardando en BD: {str(e)}'})
+
     return jsonify(result)
 
 
 @app.route('/api/labs/destroy', methods=['POST'])
 @login_required
 def api_destroy_lab():
-    user = current_user.username
-    result = clab.destroy_lab(user)
+    username = current_user.username
+
+    # 1. Ejecutar destrucción física
+    result = clab.destroy_lab(username)
+
+    if result.get('success'):
+        try:
+            # 2. Limpiar BD
+            Lab.query.filter_by(user_id=current_user.id).delete()
+            db.session.commit()
+            return jsonify({'success': True})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': f'error limpiando BD: {str(e)}'})
+
     return jsonify(result)
 
 

@@ -19,11 +19,11 @@ def get_available_ports(count):
 def deploy_lab(username, template_name):
     """Despliega un lab de ContainerLab para un usuario"""
     lab_name = f"lab-{username}"
-    lab_dir = f"/labs/{username}"
+    lab_dir = f"/users/{username}"
     os.makedirs(lab_dir, exist_ok=True)
 
     # Leer template
-    template_path = f"/labs/templates/{template_name}.yml"
+    template_path = f"/lab-templates/{template_name}.yml"
     with open(template_path, 'r') as f:
         topology = yaml.safe_load(f)
 
@@ -63,7 +63,7 @@ def deploy_lab(username, template_name):
         for node_name, port in port_mapping.items():
             nodes_info[node_name] = {
                 'port': port,
-                'url': f'/labs/{username}/{node_name}'
+                'url': f'/users/{username}/{node_name}'
             }
 
         # Guardar mapeo de puertos para el proxy
@@ -75,6 +75,8 @@ def deploy_lab(username, template_name):
             'success': True,
             'lab_name': lab_name,
             'nodes': nodes_info,
+            'topology': topology,
+            'ports': port_mapping,
             'message': result.stdout
         }
     except subprocess.CalledProcessError as e:
@@ -86,7 +88,7 @@ def deploy_lab(username, template_name):
 
 def destroy_lab(username):
     """Destruye el lab de un usuario"""
-    lab_dir = f"/labs/{username}"
+    lab_dir = f"/users/{username}"
     config_path = f"{lab_dir}/topology.yml"
 
     if not os.path.exists(config_path):
@@ -124,7 +126,7 @@ def list_labs(username):
 
 def get_node_port(username, node_name):
     """Obtiene el puerto de un nodo específico"""
-    lab_dir = f"/labs/{username}"
+    lab_dir = f"/users/{username}"
     port_map_file = f"{lab_dir}/ports.yml"
 
     if not os.path.exists(port_map_file):
