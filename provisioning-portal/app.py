@@ -3,12 +3,13 @@ import threading
 from datetime import timedelta
 import docker
 from argon2 import PasswordHasher
-from flask import Flask, request, redirect, render_template, jsonify, url_for, session
+from flask import Flask, request, redirect, render_template, jsonify, url_for, session, abort
 import containerlab_manager as clab
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from dotenv import load_dotenv
+from functools import wraps
 
 # Cargar variables de entorno
 load_dotenv()
@@ -43,6 +44,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
 
 
 class Lab(db.Model):
@@ -55,6 +57,37 @@ class Lab(db.Model):
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
 
     user = db.relationship('User', backref=db.backref('labs', lazy=True))
+
+
+# Helper para métricas
+def get_container_stats(container_name):
+    """Obtiene métricas de CPU y RAM de un contenedor"""
+    try:
+        container = client.containers.get(container_name)
+        stats = container.stats(stream=False)
+        
+        # Calcular CPU
+        cpu_delta = stats['cpu_stats']['cpu_usage']['total_usage'] - \
+                    stats['precpu_stats']['cpu_usage']['total_usage']
+        system_delta = stats['cpu_stats']['system_cpu_usage'] - \
+                       stats['precpu_stats']['system_cpu_usage']
+        
+        cpu_percent = 0.0
+        if system_delta > 0.0:
+            # Multiplicar por número de cores para obtener porcentaje total
+            cpu_percent = (cpu_delta / system_delta) * stats['cpu_stats'].get('online_cpus', 1) * 100.0
+            
+        # Calcular RAM
+        mem_usage = stats['memory_stats']['usage']
+        mem_limit = stats['memory_stats']['limit']
+        mem_percent = (mem_usage / mem_limit) * 100.0
+        
+        return {
+            'cpu': f"{cpu_percent:.1f}%",
+            'mem': f"{mem_usage / (1024*1024):.1f}MB ({mem_percent:.1f}%)"
+        }
+    except Exception:
+        return {'cpu': 'N/A', 'mem': 'N/A'}
 
 
 @login_manager.user_loader
@@ -228,8 +261,96 @@ def api_destroy_lab():
             return jsonify({'success': False, 'error': f'error limpiando BD: {str(e)}'})
 
     return jsonify(result)
+# --- Admin Routes ---
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
 
 
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    users = User.query.all()
+    labs = Lab.query.all()
+    # Enviamos labs básicos, la info de nodos se cargará vía JS
+    return render_template('admin.html', users=users, labs=labs)
+
+
+@app.route('/api/admin/labs/<int:lab_id>/status')
+@login_required
+@admin_required
+def api_admin_lab_status(lab_id):
+    lab = Lab.query.get_or_404(lab_id)
+    user = User.query.get(lab.user_id)
+    
+    if not user:
+        return jsonify({'success': False, 'error': 'Usuario no encontrado'})
+    
+    nodes_info = []
+    clab_status = clab.list_labs(user.username)
+    
+    if clab_status.get('success'):
+        data = clab_status['data']
+        for node_name, node_data in data['nodes'].items():
+            stats = get_container_stats(node_data['container_name'])
+            nodes_info.append({
+                'name': node_name,
+                'ipv4': node_data['ipv4'],
+                'cpu': stats['cpu'],
+                'mem': stats['mem']
+            })
+    
+    return jsonify({
+        'success': True,
+        'nodes': nodes_info
+    })
+
+
+@app.route('/api/admin/labs/destroy/<int:lab_id>', methods=['POST'])
+@login_required
+@admin_required
+def api_admin_destroy_lab(lab_id):
+    lab = Lab.query.get_or_404(lab_id)
+    # 1. Obtener el usuario del lab para clab
+    user = User.query.get(lab.user_id)
+    if not user:
+        return jsonify({'success': False, 'error': 'Usuario no encontrado'})
+
+    # 2. Destrucción física
+    result = clab.destroy_lab(user.username)
+    if result.get('success'):
+        db.session.delete(lab)
+        db.session.commit()
+    return jsonify(result)
+
+
+@app.route('/api/admin/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+@admin_required
+def api_admin_delete_user(user_id):
+    if user_id == current_user.id:
+        return jsonify({'success': False, 'error': 'No puedes borrarte a ti mismo'})
+
+    user = User.query.get_or_404(user_id)
+
+    # 1. Destruir lab si existe
+    lab = Lab.query.filter_by(user_id=user.id).first()
+    if lab:
+        clab.destroy_lab(user.username)
+        db.session.delete(lab)
+
+    # 2. Borrar usuario
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# --- Socket.IO y Terminal ---
 @app.route('/terminal/<username>/<node_name>')
 @login_required
 def terminal_page(username, node_name):

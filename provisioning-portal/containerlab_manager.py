@@ -19,7 +19,7 @@ def get_available_ports(count):
 def deploy_lab(username, template_name):
     """Despliega un lab de ContainerLab para un usuario"""
     lab_name = f"lab-{username}"
-    lab_dir = f"/users/{username}"
+    lab_dir = f"/labs/{username}"
     os.makedirs(lab_dir, exist_ok=True)
 
     # Leer template
@@ -63,7 +63,7 @@ def deploy_lab(username, template_name):
         for node_name, port in port_mapping.items():
             nodes_info[node_name] = {
                 'port': port,
-                'url': f'/users/{username}/{node_name}'
+                'url': f'/labs/{username}/{node_name}'
             }
 
         # Guardar mapeo de puertos para el proxy
@@ -88,7 +88,7 @@ def deploy_lab(username, template_name):
 
 def destroy_lab(username):
     """Destruye el lab de un usuario"""
-    lab_dir = f"/users/{username}"
+    lab_dir = f"/labs/{username}"
     config_path = f"{lab_dir}/topology.yml"
 
     if not os.path.exists(config_path):
@@ -118,7 +118,26 @@ def list_labs(username):
         if result.returncode == 0:
             import json
             data = json.loads(result.stdout)
-            return {'success': True, 'data': data}
+            
+            # El formato JSON de clab es { "lab-name": [ {node1}, {node2} ] }
+            # Buscamos la lista de nodos para el lab-name
+            nodes = data.get(lab_name, [])
+            network_info = {
+                'nodes': {},
+                'subnet': 'Desconocida'
+            }
+            
+            for node in nodes:
+                # El nombre viene como clab-lab-username-nodename
+                full_name = node.get('name', '')
+                short_name = full_name.replace(f"clab-{lab_name}-", "")
+                
+                network_info['nodes'][short_name] = {
+                    'ipv4': node.get('ipv4_address', 'N/A').split('/')[0], # Solo la IP sin la máscara
+                    'container_name': full_name
+                }
+            
+            return {'success': True, 'data': network_info}
         return {'success': False, 'error': 'Lab no encontrado'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
@@ -126,7 +145,7 @@ def list_labs(username):
 
 def get_node_port(username, node_name):
     """Obtiene el puerto de un nodo específico"""
-    lab_dir = f"/users/{username}"
+    lab_dir = f"/labs/{username}"
     port_map_file = f"{lab_dir}/ports.yml"
 
     if not os.path.exists(port_map_file):

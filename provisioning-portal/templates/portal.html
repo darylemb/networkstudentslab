@@ -113,6 +113,9 @@
             <h1>🌐 Student Labs</h1>
             <div>
                 <span>Hola, <strong>{{ user }}</strong></span> |
+                {% if current_user.is_admin %}
+                <a href="/admin" style="color: #ea580c; font-weight: bold; text-decoration: none;">🛡️ Admin</a> |
+                {% endif %}
                 <a href="/logout">Cerrar Sesión</a>
             </div>
         </div>
