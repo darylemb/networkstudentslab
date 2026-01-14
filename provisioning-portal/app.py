@@ -45,6 +45,19 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
+
+
+class Group(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    description = db.Column(db.String(200), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    invite_code = db.Column(db.String(10), unique=True, nullable=True)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    owner = db.relationship('User', foreign_keys=[owner_id], backref='owned_groups')
+    members = db.relationship('User', foreign_keys=[User.group_id], backref='current_group')
 
 
 class Lab(db.Model):
@@ -176,6 +189,82 @@ def logout():
     return redirect(url_for('login'))
 
 
+# --- APIS DE GRUPOS ---
+
+@app.route('/api/groups/create', methods=['POST'])
+@login_required
+def api_create_group():
+    data = request.get_json()
+    name = data.get('name')
+    if not name:
+        return jsonify({'success': False, 'error': 'Nombre requerido'})
+
+    try:
+        import secrets
+        import string
+        invite_code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        
+        new_group = Group(
+            name=name,
+            description=data.get('description', ''),
+            owner_id=current_user.id,
+            invite_code=invite_code
+        )
+        db.session.add(new_group)
+        db.session.flush() # Para obtener ID
+        
+        current_user.group_id = new_group.id
+        db.session.commit()
+        return jsonify({'success': True, 'invite_code': invite_code})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/groups/join', methods=['POST'])
+@login_required
+def api_join_group():
+    data = request.get_json()
+    code = data.get('invite_code')
+    if not code:
+        return jsonify({'success': False, 'error': 'Código requerido'})
+
+    group = Group.query.filter_by(invite_code=code.upper()).first()
+    if not group:
+        return jsonify({'success': False, 'error': 'Código inválido'})
+
+    try:
+        current_user.group_id = group.id
+        db.session.commit()
+        return jsonify({'success': True, 'group_name': group.name})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/groups/leave', methods=['POST'])
+@login_required
+def api_leave_group():
+    if not current_user.group_id:
+        return jsonify({'success': False, 'error': 'No estás en un grupo'})
+
+    try:
+        group_id = current_user.group_id
+        current_user.group_id = None
+        db.session.commit()
+        
+        # Verificar si el grupo quedó vacío
+        group = Group.query.get(group_id)
+        if group and len(group.members) == 0:
+            db.session.delete(group)
+            db.session.commit()
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+
 # --- Rutas del Portal ---
 
 @app.route('/')
@@ -219,8 +308,19 @@ def api_deploy_lab():
     data = request.get_json()
     template = data.get('template', 'simple-link')
 
+    # DETERMINAR RED AISLADA Y SUBRED ÚNICA
+    # Usamos rangos 10.x.y.0/24 para evitar colisiones con redes Docker estándar
+    if current_user.group_id:
+        network_name = f"clab-group-{current_user.group_id}"
+        # Grupos usan el rango 10.200.ID.0/24
+        ipv4_subnet = f"10.200.{current_user.group_id % 255}.0/24"
+    else:
+        network_name = f"clab-user-{current_user.id}"
+        # Usuarios individuales usan el rango 10.100.ID.0/24
+        ipv4_subnet = f"10.100.{current_user.id % 255}.0/24"
+
     # 1. Ejecutar despliegue físico
-    result = clab.deploy_lab(username, template)
+    result = clab.deploy_lab(username, template, network_name=network_name, ipv4_subnet=ipv4_subnet)
 
     if result.get('success'):
         try:
@@ -277,8 +377,9 @@ def admin_required(f):
 def admin_dashboard():
     users = User.query.all()
     labs = Lab.query.all()
+    groups = Group.query.all()
     # Enviamos labs básicos, la info de nodos se cargará vía JS
-    return render_template('admin.html', users=users, labs=labs)
+    return render_template('admin.html', users=users, labs=labs, groups=groups)
 
 
 @app.route('/api/admin/labs/<int:lab_id>/status')
@@ -333,21 +434,48 @@ def api_admin_destroy_lab(lab_id):
 @login_required
 @admin_required
 def api_admin_delete_user(user_id):
-    if user_id == current_user.id:
-        return jsonify({'success': False, 'error': 'No puedes borrarte a ti mismo'})
-
     user = User.query.get_or_404(user_id)
-
-    # 1. Destruir lab si existe
+    if user.id == current_user.id:
+        return jsonify({'success': False, 'error': 'No puedes eliminarte a ti mismo'})
+    
+    # Destruir lab antes de eliminar usuario
+    # Find and destroy the lab associated with the user
     lab = Lab.query.filter_by(user_id=user.id).first()
     if lab:
         clab.destroy_lab(user.username)
         db.session.delete(lab)
 
-    # 2. Borrar usuario
+    # Borrar usuario
     db.session.delete(user)
     db.session.commit()
     return jsonify({'success': True})
+
+
+@app.route('/api/admin/groups/delete/<int:group_id>', methods=['POST'])
+@login_required
+@admin_required
+def api_admin_delete_group(group_id):
+    group = Group.query.get_or_404(group_id)
+    
+    try:
+        # 1. Identificar miembros
+        members = User.query.filter_by(group_id=group.id).all()
+        
+        # 2. Destruir labs de los miembros para limpiar redes de clab
+        for member in members:
+            lab_entry = Lab.query.filter_by(user_id=member.id).first()
+            if lab_entry:
+                clab.destroy_lab(member.username)
+                db.session.delete(lab_entry)
+            member.group_id = None
+            
+        # 3. Eliminar el grupo
+        db.session.delete(group)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
 
 
 # --- Socket.IO y Terminal ---

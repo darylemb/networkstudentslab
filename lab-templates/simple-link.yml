@@ -2,7 +2,6 @@ name: simple-link
 
 mgmt:
   network: lab-net
-  ipv4-subnet: 172.19.0.0/16
 
 topology:
   nodes:

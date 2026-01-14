@@ -22,8 +22,7 @@ server {
 
     # Ruta principal del portal
     location / {
-        set $portal_backend "portal:5000";
-        proxy_pass http://$portal_backend;
+        proxy_pass http://host.docker.internal:5000;
         
         # Cabeceras para WebSocket (necesarias para Socket.io)
         proxy_set_header Upgrade $http_upgrade;
@@ -37,8 +36,7 @@ server {
 
     # API de información del nodo (opcional si ya está en /)
     location ~ ^/labs/([^/]+)/([^/]+)$ {
-        set $portal_backend "portal:5000";
-        proxy_pass http://$portal_backend;
+        proxy_pass http://host.docker.internal:5000;
     }
 
     # Proxy para terminales
@@ -49,7 +47,7 @@ server {
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
         
-        set $portal_backend "portal:5000";
+        set $portal_backend "host.docker.internal:5000";
         proxy_pass http://$portal_backend;
     }
 }

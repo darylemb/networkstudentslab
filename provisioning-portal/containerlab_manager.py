@@ -16,7 +16,7 @@ def get_available_ports(count):
     return ports
 
 
-def deploy_lab(username, template_name):
+def deploy_lab(username, template_name, network_name="lab-net", ipv4_subnet=None):
     """Despliega un lab de ContainerLab para un usuario"""
     lab_name = f"lab-{username}"
     lab_dir = f"/labs/{username}"
@@ -41,6 +41,18 @@ def deploy_lab(username, template_name):
         if 'ports' not in node_config:
             node_config['ports'] = []
         node_config['ports'].append(f"{port}:7681")
+
+    # Forzar red de administración aislada
+    if 'mgmt' not in topology:
+        topology['mgmt'] = {}
+    topology['mgmt']['network'] = network_name
+    # ELIMINAR subred del template para usar la nueva o dejar que Docker asigne
+    if 'ipv4-subnet' in topology['mgmt']:
+        del topology['mgmt']['ipv4-subnet']
+    
+    # Asignar subred explícita si se provee (recomendado para evitar colisiones entre redes aisladas)
+    if ipv4_subnet:
+        topology['mgmt']['ipv4-subnet'] = ipv4_subnet
 
     # Guardar configuración actualizada
     topology['name'] = lab_name

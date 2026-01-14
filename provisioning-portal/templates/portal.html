@@ -99,6 +99,39 @@
             overflow-y: auto;
         }
 
+        .group-card {
+            background: #e9ecef;
+            border-left: 5px solid #28a745;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+
+        .group-invite {
+            font-family: monospace;
+            background: #fff;
+            padding: 2px 6px;
+            border: 1px dashed #28a745;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
         #terminals-wrapper.grid-mode iframe {
             display: block !important;
             height: 100% !important;
@@ -146,6 +179,36 @@
             <button class="danger" style="margin-top:20px" onclick="destroyLab()">Destruir Lab</button>
         </div>
         {% else %}
+        <div class="section">
+            <h2>👥 Gestión de Grupos</h2>
+            {% if current_user.group_id %}
+            <div class="group-card">
+                <p>Estás en el grupo: <strong>{{ current_user.current_group.name }}</strong></p>
+                {% if current_user.current_group.owner_id == current_user.id %}
+                <p>Código de Invitación: <span class="group-invite">{{ current_user.current_group.invite_code }}</span>
+                </p>
+                {% endif %}
+                <button class="danger" onclick="leaveGroup()">Abandonar Grupo</button>
+            </div>
+            {% else %}
+            <div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <h3>Unirse a un Grupo</h3>
+                    <div class="form-group">
+                        <input type="text" id="invite-code" placeholder="Código de 6 dígitos">
+                    </div>
+                    <button onclick="joinGroup()">Unirse</button>
+                </div>
+                <div style="flex: 1; border-left: 1px solid #eee; padding-left: 20px;">
+                    <h3>Crear Nuevo Grupo</h3>
+                    <div class="form-group">
+                        <input type="text" id="group-name" placeholder="Nombre del grupo">
+                    </div>
+                    <button class="info" onclick="createGroup()">Crear</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
         <div class="section">
             <h3>Crear Laboratorio</h3>
             <button onclick="createLab('simple-link')">🔗 Enlace Simple</button>
@@ -245,6 +308,46 @@
                 document.getElementById('btn-grid').style.background = '#333';
                 if (activeTerminalNode) switchTerminal(activeTerminalNode);
             }
+        }
+
+        function closeTerminalContainer() {
+            document.getElementById('terminal-container').classList.remove('active');
+        }
+
+        // GRUPOS
+        function createGroup() {
+            const name = document.getElementById('group-name').value;
+            if (!name) return alert('Ingresa un nombre');
+            fetch('/api/groups/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            }).then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+                else alert('Error: ' + d.error);
+            });
+        }
+
+        function joinGroup() {
+            const code = document.getElementById('invite-code').value;
+            if (!code) return alert('Ingresa el código');
+            fetch('/api/groups/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invite_code: code })
+            }).then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+                else alert('Error: ' + d.error);
+            });
+        }
+
+        function leaveGroup() {
+            if (!confirm('¿Seguro que quieres dejar el grupo?')) return;
+            fetch('/api/groups/leave', { method: 'POST' })
+                .then(r => r.json()).then(d => {
+                    if (d.success) location.reload();
+                    else alert('Error: ' + d.error);
+                });
         }
 
         function openTerminal(node, url) {

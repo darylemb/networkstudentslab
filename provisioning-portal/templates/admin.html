@@ -186,6 +186,7 @@
                         <th>ID</th>
                         <th>Username</th>
                         <th>Email</th>
+                        <th>Grupo</th>
                         <th>Rol</th>
                         <th>Acciones</th>
                     </tr>
@@ -196,6 +197,13 @@
                         <td>{{ user.id }}</td>
                         <td><strong>{{ user.username }}</strong></td>
                         <td>{{ user.email or '-' }}</td>
+                        <td>
+                            {% if user.group_id %}
+                            <span class="badge badge-cpu">{{ user.current_group.name }}</span>
+                            {% else %}
+                            <span style="color:#94a3b8;">-</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if user.is_admin %}
                             <span class="badge badge-admin">ADMIN</span>
@@ -211,6 +219,42 @@
                             <span style="color:#94a3b8; font-size:12px;">(Tú)</span>
                             {% endif %}
                         </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section" style="margin-top: 40px;">
+            <h2>🏘️ Grupos de Estudiantes</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Propietario</th>
+                        <th>Código Inv.</th>
+                        <th>Miembros</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in groups %}
+                    <tr>
+                        <td>{{ group.id }}</td>
+                        <td><strong>{{ group.name }}</strong></td>
+                        <td>{{ group.owner.username }}</td>
+                        <td><span class="badge badge-ip">{{ group.invite_code }}</span></td>
+                        <td>{{ group.members|length }}</td>
+                        <td>
+                            <button class="btn-delete"
+                                onclick="deleteGroup({{ group.id }}, '{{ group.name }}')">Eliminar Grupo</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align:center; color:#64748b; padding: 20px;">No hay grupos
+                            creados.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -257,8 +301,19 @@
 
     <script>
         function deleteUser(id, name) {
-            if (confirm(`¿Estás seguro de que deseas eliminar al usuario "${name}"? Esto también destruirá su laboratorio si está activo.`)) {
+            if (confirm(`¿Estás seguro de eliminar al usuario "${name}"? Se destruirán sus laboratorios.`)) {
                 fetch(`/api/admin/users/delete/${id}`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.success) location.reload();
+                        else alert('Error: ' + d.error);
+                    });
+            }
+        }
+
+        function deleteGroup(id, name) {
+            if (confirm(`¿Estás seguro de eliminar el grupo "${name}"? Se destruirán los laboratorios de sus miembros.`)) {
+                fetch(`/api/admin/groups/delete/${id}`, { method: 'POST' })
                     .then(r => r.json())
                     .then(d => {
                         if (d.success) location.reload();

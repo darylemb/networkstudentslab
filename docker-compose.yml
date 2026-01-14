@@ -9,6 +9,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - lab-net
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -19,15 +21,14 @@ services:
     build: ./provisioning-portal
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB}
       - SECRET_KEY=${PORTAL_SECRET_KEY}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./labs:/labs
       - ./lab-templates:/lab-templates
       - /proc:/host/proc:ro
-    networks:
-      - lab-net
+    network_mode: host
     privileged: true
     cap_add:
       - NET_ADMIN
@@ -40,6 +41,8 @@ services:
 
   nginx:
     image: nginx:alpine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "80:80"
       - "443:443"
