@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Student Labs Portal</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .danger {
+            background: #dc3545;
+        }
+
+        .info {
+            background: #17a2b8;
+        }
+
+        .nodes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .node-card {
+            padding: 15px;
+            background: white;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+        }
+
+        .terminal-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 50vh;
+            background: #1e1e1e;
+            display: none;
+        }
+
+        .terminal-container.active {
+            display: block;
+        }
+
+        .terminal-header {
+            background: #007bff;
+            color: white;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        iframe {
+            width: 100%;
+            height: calc(100% - 40px);
+            border: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌐 Student Labs</h1>
+            <div>
+                <span>Hola, <strong>{{ user }}</strong></span> |
+                <a href="/logout">Cerrar Sesión</a>
+            </div>
+        </div>
+        {% if lab_active %}
+        <div class="section">
+            <h3>✅ Lab Activo</h3>
+            {{ nodes_html|safe }}
+            <button class="danger" style="margin-top:20px" onclick="destroyLab()">Destruir Lab</button>
+        </div>
+        {% else %}
+        <div class="section">
+            <h3>Crear Laboratorio</h3>
+            <button onclick="createLab('simple-link')">🔗 Enlace Simple</button>
+            <button onclick="createLab('basic-network')">🌐 Red Básica</button>
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="terminal-container" class="terminal-container">
+        <div class="terminal-header">
+            <span>Terminal: <strong id="node-label"></strong></span>
+            <button onclick="closeTerminal()">✕</button>
+        </div>
+        <iframe id="terminal-iframe"></iframe>
+    </div>
+
+    <script>
+        function createLab(t) {
+            if (confirm('¿Crear lab?')) {
+                fetch('/api/labs/deploy', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ template: t })
+                }).then(r => r.json()).then(d => {
+                    if (d.success) location.reload(); else alert('Error: ' + d.error);
+                });
+            }
+        }
+        function destroyLab() {
+            if (confirm('¿Destruir?')) {
+                fetch('/api/labs/destroy', { method: 'POST' })
+                    .then(r => r.json()).then(d => location.reload());
+            }
+        }
+        function openTerminal(node, url) {
+            document.getElementById('terminal-iframe').src = url;
+            document.getElementById('node-label').textContent = node;
+            document.getElementById('terminal-container').classList.add('active');
+        }
+        function closeTerminal() {
+            document.getElementById('terminal-container').classList.remove('active');
+            document.getElementById('terminal-iframe').src = '';
+        }
+    </script>
+</body>
+
+</html>

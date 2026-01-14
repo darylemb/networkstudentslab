@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Term - {{node_name}}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+        }
+
+        #terminal {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="terminal"></div>
+    <script>
+        const term = new Terminal({ cursorBlink: true, theme: { background: '#1e1e1e' } });
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+        const socket = io();
+        socket.on('connect', () => {
+            socket.emit('start_terminal', { username: '{{username}}', node_name: '{{node_name}}', rows: term.rows, cols: term.cols });
+        });
+        socket.on('terminal_output', d => term.write(d));
+        term.onData(d => socket.emit('terminal_input', { data: d }));
+        term.onResize(s => socket.emit('terminal_resize', { rows: s.rows, cols: s.cols }));
+        window.onresize = () => fitAddon.fit();
+    </script>
+</body>
+
+</html>

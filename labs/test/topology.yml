@@ -12,9 +12,9 @@ topology:
       image: ghcr.io/srl-labs/network-multitool:latest
       kind: linux
       ports:
-      - 60361:7681
+      - 49549:7681
     server:
       image: ghcr.io/srl-labs/network-multitool:latest
       kind: linux
       ports:
-      - 43763:7681
+      - 45005:7681
